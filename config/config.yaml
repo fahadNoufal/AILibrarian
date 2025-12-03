@@ -1,0 +1,55 @@
+
+data_ingestion:
+  data_set: dylanjcastillo/7k-books-with-metadata
+  min_description_len: 25
+  max_description_len: 400
+  output_dataset: /artifacts/datasets/books_cleaned.csv
+
+
+data_preprocessing:
+  input_dataset: /artifacts/datasets/books_cleaned.csv
+  chunk_size: 1
+  chunk_overlap: 0
+  seperator: \n
+
+embedding_generation_and_vector_storage:
+  model: sentence-transformers/all-MiniLM-L6-v2
+  embedding_data: /artifacts/datasets/embeddings.csv
+  collection_name: books_collection
+
+data_classification:
+  input_dataset: artifacts/datasets/books_cleaned.csv
+  pipeline_name: zero-shot-classification
+  model: facebook/bart-large-mnli
+  labels:
+    Fiction: Fiction
+    Juvenile Fiction: "Children's Fiction"
+    Biography & Autobiography: NonFiction
+    History: NonFiction
+    Literary Criticism: NonFiction
+    Philosophy: NonFiction
+    Religion: NonFiction
+    Comics & Graphic Novels: Fiction
+    Drama: Fiction
+    Juvenile Nonfiction: "Children's NonFiction"
+    Science: NonFiction
+    Poetry: Fiction
+  possible_labels: [Fiction, NonFiction]
+  simple_categories_classified_dataset: artifacts/datasets/simple_categories_classified.csv
+  output_dataset: artifacts/datasets/books_with_categories.txt
+
+sentimant_analysis:
+  input_dataset: artifacts/datasets/books_with_categories.txt
+  pipeline_name: text-classification
+  model: j-hartmann/emotion-english-distilroberta-base
+  emotions: [anger, disgust, fear, joy, neutral, sadness, surprise]
+  output_dataset: artifacts/datasets/books_final.txt
+  
+
+books_retrival:
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2
+  dataset: artifacts/datasets/books_final.txt
+  embeddings: artifacts/datasets/embeddings.csv
+  tagged_description: artifacts/datasets/tagged_descriptions.txt
+  collection_name: BooksCollection
+  query_n_results: 50

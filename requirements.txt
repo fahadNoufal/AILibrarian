@@ -1,0 +1,15 @@
+transformers
+pandas
+numpy
+pydantic
+python-box
+ensure==1.0.2
+mypy-boto3-s3
+PyYAML
+fastapi
+uvicorn
+kagglehub
+python-dotenv
+tqdm
+
+-e .
