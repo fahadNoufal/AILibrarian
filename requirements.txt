@@ -2,6 +2,7 @@ pandas
 numpy
 pydantic
 transformers
+sentence-transformers
 torch
 langchain-community
 langchain-text-splitters
