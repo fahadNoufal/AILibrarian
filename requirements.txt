@@ -16,5 +16,3 @@ uvicorn
 kagglehub
 python-dotenv
 tqdm
-
--e .
