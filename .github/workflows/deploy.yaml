@@ -49,7 +49,7 @@ jobs:
           region: ${{ env.REGION }}
           image: ${{ env.IMAGE_URL }}
           # flags: '--allow-unauthenticated'
-          flags: '--allow-unauthenticated --memory 2Gi'
+          flags: '--allow-unauthenticated --memory 1Gi'
 
       # 5. Cleanup Old Images (Keeps costs near $0)
       # We use a gcloud command here because the GitHub Action doesn't support GAR cleanup easily
