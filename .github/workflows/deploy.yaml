@@ -1,0 +1,65 @@
+name: Deploy to Cloud Run
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  SERVICE_NAME: ailibrarian
+  REGION: us-central1
+  PROJECT_ID: cogent-cocoa-478714-a9
+  # 👇 CHANGED: Pointing to Google Artifact Registry
+  # Format: region-docker.pkg.dev/project-id/repo-name/image-name:commit-id
+  IMAGE_URL: us-central1-docker.pkg.dev/cogent-cocoa-478714-a9/ailibrarian-repo/ailibrarian:${{ github.sha }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 1. Login to Google Cloud
+      - name: Google Auth
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+
+      # 2. Configure Docker to use Google's Registry
+      - name: Configure Docker
+        run: gcloud auth configure-docker us-central1-docker.pkg.dev
+
+      # 3. Build and Push to Google Artifact Registry
+      - name: Build and Push
+        run: |
+          docker build -t ${{ env.IMAGE_URL }} .
+          docker push ${{ env.IMAGE_URL }}
+
+      # 4. Deploy to Cloud Run
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE_URL }}
+          flags: '--allow-unauthenticated'
+
+      # 5. Cleanup Old Images (Keeps costs near $0)
+      # We use a gcloud command here because the GitHub Action doesn't support GAR cleanup easily
+      - name: Cleanup Old Images
+        run: |
+          gcloud artifacts docker images list us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/ailibrarian-repo/ailibrarian \
+          --sort-by="~CREATE_TIME" \
+          --limit=999 \
+          --format="value(DIGEST)" > images_to_delete.txt
+          
+          # Keep the top 3 recent images, delete the rest
+          tail -n +4 images_to_delete.txt | while read digest; do
+            gcloud artifacts docker images delete "us-central1-docker.pkg.dev/${{ env.PROJECT_ID }}/ailibrarian-repo/ailibrarian@$digest" --delete-tags --quiet
+          done || true
