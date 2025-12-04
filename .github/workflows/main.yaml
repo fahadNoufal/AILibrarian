@@ -1,0 +1,107 @@
+name: workflow
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "README.md"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  integration:
+    name: Continuous Integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Lint code
+        run: echo "Linting repository"
+
+      - name: Run unit tests
+        run: echo "Running unit tests"
+
+  build-and-push-artifact-registry:
+    name: Continuous Delivery
+    needs: integration
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: ${{ secrets.GCP_REGION }}
+      REPOSITORY: ${{ secrets.GCP_REPOSITORY }}
+      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      # -----------------------------
+      # GOOGLE CLOUD AUTHENTICATION
+      # -----------------------------
+      - name: Google Cloud Auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # -----------------------------
+      # DOCKER LOGIN TO ARTIFACT REGISTRY
+      # -----------------------------
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev
+
+      # -----------------------------
+      # BUILD AND PUSH IMAGE
+      # -----------------------------
+      - name: Build and Push Docker Image
+        env:
+          IMAGE_URL: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/${{ secrets.SERVICE_NAME }}
+        run: |
+          docker build -t $IMAGE_URL:latest .
+          docker push $IMAGE_URL:latest
+
+      # Pass IMAGE_URL to next job
+      - name: Set Output Image URL
+        id: image
+        run: echo "image=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/${{ secrets.SERVICE_NAME }}:latest" >> $GITHUB_OUTPUT
+
+
+  Continuous-Deployment:
+    needs: build-and-push-artifact-registry
+    runs-on: ubuntu-latest
+    env:
+      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+      REGION: ${{ secrets.GCP_REGION }}
+      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Google Cloud Auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      # -----------------------------
+      # DEPLOY TO CLOUD RUN
+      # -----------------------------
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy ${SERVICE_NAME} \
+            --image ${{ needs.build-and-push-artifact-registry.outputs.image }} \
+            --platform managed \
+            --region ${REGION} \
+            --allow-unauthenticated
+
+      # Optional cleanup
+      - name: Cleanup old Docker artifacts
+        run: docker system prune -f
