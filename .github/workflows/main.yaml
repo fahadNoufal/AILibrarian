@@ -1,107 +1,59 @@
-name: workflow
+name: Deploy to Cloud Run
 
 on:
   push:
     branches:
       - main
-    paths-ignore:
-      - "README.md"
 
-permissions:
-  id-token: write
-  contents: read
+env:
+  SERVICE_NAME: ailibrarian  
+  REGION: us-central1       
+  IMAGE_URL: ghcr.io/${{ github.repository }}:${{ github.sha }}
 
 jobs:
-  integration:
-    name: Continuous Integration
+  deploy:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
+      # Step 1: Get your code from the repo
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Lint code
-        run: echo "Linting repository"
+      # Step 2: Log in to GitHub's free container registry
+      # Uses the automatic GITHUB_TOKEN (no secret needed here)
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run unit tests
-        run: echo "Running unit tests"
+      # Step 3: Build the Docker image and push it to GitHub
+      # Includes logic to ensure the image name is lowercase (required by Docker)
+      - name: Build and Push
+        run: |
+          IMAGE_LOWER=$(echo "${{ env.IMAGE_URL }}" | tr '[:upper:]' '[:lower:]')
+          docker build -t $IMAGE_LOWER .
+          docker push $IMAGE_LOWER
+          echo "IMAGE_FINAL=$IMAGE_LOWER" >> $GITHUB_ENV
 
-  build-and-push-artifact-registry:
-    name: Continuous Delivery
-    needs: integration
-    runs-on: ubuntu-latest
-    env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REGION: ${{ secrets.GCP_REGION }}
-      REPOSITORY: ${{ secrets.GCP_REPOSITORY }}
-      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      # -----------------------------
-      # GOOGLE CLOUD AUTHENTICATION
-      # -----------------------------
-      - name: Google Cloud Auth
+      # Step 4: Login to Google Cloud
+      - name: Google Auth
+        id: auth
         uses: google-github-actions/auth@v2
         with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
+          credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      # -----------------------------
-      # DOCKER LOGIN TO ARTIFACT REGISTRY
-      # -----------------------------
-      - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker ${REGION}-docker.pkg.dev
-
-      # -----------------------------
-      # BUILD AND PUSH IMAGE
-      # -----------------------------
-      - name: Build and Push Docker Image
-        env:
-          IMAGE_URL: ${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/${{ secrets.SERVICE_NAME }}
-        run: |
-          docker build -t $IMAGE_URL:latest .
-          docker push $IMAGE_URL:latest
-
-      # Pass IMAGE_URL to next job
-      - name: Set Output Image URL
-        id: image
-        run: echo "image=${{ secrets.GCP_REGION }}-docker.pkg.dev/${{ secrets.GCP_PROJECT_ID }}/${{ secrets.GCP_REPOSITORY }}/${{ secrets.SERVICE_NAME }}:latest" >> $GITHUB_OUTPUT
-
-
-  Continuous-Deployment:
-    needs: build-and-push-artifact-registry
-    runs-on: ubuntu-latest
-    env:
-      PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-      REGION: ${{ secrets.GCP_REGION }}
-      SERVICE_NAME: ${{ secrets.SERVICE_NAME }}
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Google Cloud Auth
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-      - name: Set up Cloud SDK
-        uses: google-github-actions/setup-gcloud@v2
-
-      # -----------------------------
-      # DEPLOY TO CLOUD RUN
-      # -----------------------------
+      # Step 5: Deploy the image to Cloud Run
       - name: Deploy to Cloud Run
-        run: |
-          gcloud run deploy ${SERVICE_NAME} \
-            --image ${{ needs.build-and-push-artifact-registry.outputs.image }} \
-            --platform managed \
-            --region ${REGION} \
-            --allow-unauthenticated
-
-      # Optional cleanup
-      - name: Cleanup old Docker artifacts
-        run: docker system prune -f
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE_FINAL }}
+          project_id: ${{ steps.auth.outputs.project_id }}
+          flags: '--allow-unauthenticated' # Makes the URL public

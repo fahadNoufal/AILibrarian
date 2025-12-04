@@ -2,6 +2,7 @@ pandas
 numpy
 pydantic
 transformers
+torch
 langchain-community
 langchain-text-splitters
 langchain-chroma
