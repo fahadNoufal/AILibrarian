@@ -1,24 +1,26 @@
-
 data_ingestion:
+  root_dir: artifacts
+  data_dir: datasets
   data_set: dylanjcastillo/7k-books-with-metadata
-  min_description_len: 25
-  max_description_len: 400
-  output_dataset: /artifacts/datasets/books_cleaned.csv
+  output_dataset: artifacts/datasets/books.csv
 
 
 data_preprocessing:
-  input_dataset: /artifacts/datasets/books_cleaned.csv
-  chunk_size: 1
-  chunk_overlap: 0
-  seperator: \n
+  min_description_len: 25
+  max_description_len: 400
+  output_dataset: artifacts/datasets/books_cleaned.csv
+
 
 embedding_generation_and_vector_storage:
+  chunk_size: 1
+  chunk_overlap: 0
+  seperator: "\n"
   model: sentence-transformers/all-MiniLM-L6-v2
-  embedding_data: /artifacts/datasets/embeddings.csv
+  embedding_data_path: artifacts/datasets/embeddings.csv
+  tagged_description: artifacts/datasets/tagged_descriptions.txt
   collection_name: books_collection
 
 data_classification:
-  input_dataset: artifacts/datasets/books_cleaned.csv
   pipeline_name: zero-shot-classification
   model: facebook/bart-large-mnli
   labels:
@@ -39,17 +41,11 @@ data_classification:
   output_dataset: artifacts/datasets/books_with_categories.txt
 
 sentimant_analysis:
-  input_dataset: artifacts/datasets/books_with_categories.txt
   pipeline_name: text-classification
   model: j-hartmann/emotion-english-distilroberta-base
   emotions: [anger, disgust, fear, joy, neutral, sadness, surprise]
   output_dataset: artifacts/datasets/books_final.txt
   
-
-books_retrival:
-  embedding_model: sentence-transformers/all-MiniLM-L6-v2
-  dataset: artifacts/datasets/books_final.txt
-  embeddings: artifacts/datasets/embeddings.csv
-  tagged_description: artifacts/datasets/tagged_descriptions.txt
-  collection_name: BooksCollection
+data_retrival:
   query_n_results: 50
+  return_n_results: 8

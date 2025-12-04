@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from logger import logging
+import logging
 
 logging.basicConfig(level=logging.INFO,format='[%(asctime)s]: %(message)s:')
 
