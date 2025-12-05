@@ -1,14 +1,14 @@
 data_ingestion:
-  root_dir: artifacts
+  root_dir: tmp/artifacts
   data_dir: datasets
   data_set: dylanjcastillo/7k-books-with-metadata
-  output_dataset: artifacts/datasets/books.csv
+  output_dataset: tmp/artifacts/datasets/books.csv
 
 
 data_preprocessing:
   min_description_len: 25
   max_description_len: 400
-  output_dataset: artifacts/datasets/books_cleaned.csv
+  output_dataset: tmp/artifacts/datasets/books_cleaned.csv
 
 
 embedding_generation_and_vector_storage:
@@ -16,8 +16,8 @@ embedding_generation_and_vector_storage:
   chunk_overlap: 0
   seperator: "\n"
   model: sentence-transformers/all-MiniLM-L6-v2
-  embedding_data_path: artifacts/datasets/embeddings.csv
-  tagged_description: artifacts/datasets/tagged_descriptions.txt
+  embedding_data_path: tmp/artifacts/datasets/embeddings.csv
+  tagged_description: tmp/artifacts/datasets/tagged_descriptions.txt
   collection_name: books_collection
 
 data_classification:
@@ -37,14 +37,14 @@ data_classification:
     Science: NonFiction
     Poetry: Fiction
   possible_labels: [Fiction, NonFiction]
-  simple_categories_classified_dataset: artifacts/datasets/simple_categories_classified.csv
-  output_dataset: artifacts/datasets/books_with_categories.txt
+  simple_categories_classified_dataset: tmp/artifacts/datasets/simple_categories_classified.csv
+  output_dataset: tmp/artifacts/datasets/books_with_categories.txt
 
 sentimant_analysis:
   pipeline_name: text-classification
   model: j-hartmann/emotion-english-distilroberta-base
   emotions: [anger, disgust, fear, joy, neutral, sadness, surprise]
-  output_dataset: artifacts/datasets/books_final.txt
+  output_dataset: tmp/artifacts/datasets/books_final.txt
   
 data_retrival:
   query_n_results: 50

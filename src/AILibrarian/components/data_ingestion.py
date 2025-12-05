@@ -16,9 +16,11 @@ class DataIngestion:
         self.root_dir = root_dir
         
     def load_data(self):
-        path = kagglehub.dataset_download(self.config.data_set)
-        df = pd.read_csv(f"{path}/books.csv")
-        create_directories([Path(self.root_dir,self.config.data_dir)])
-        df.to_csv(Path(self.root_dir,self.config.output_dataset),index=False)
+        if not Path(self.root_dir,self.config.output_dataset).exists():
+            logger.info('Fetching Books Dataset...')
+            path = kagglehub.dataset_download(self.config.data_set)
+            df = pd.read_csv(f"{path}/books.csv")
+            create_directories([Path(self.root_dir,self.config.data_dir)])
+            df.to_csv(Path(self.root_dir,self.config.output_dataset),index=False)
         logger.info('Successfully Fetched Books Dataset...')
         return self.config.output_dataset

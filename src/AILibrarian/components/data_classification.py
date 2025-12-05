@@ -22,15 +22,17 @@ class DataClassification:
         
     def store_classified_data(self,df:pd.DataFrame,simple_category_dataset:Path)->Path:
         
-        simple_categories_classified = pd.read_csv(Path(self.root_dir,simple_category_dataset),index_col=0)
-        combined_df = df.merge(simple_categories_classified, on = 'isbn10', how='left')
-        
-        combined_df['simple_categories'] = combined_df['simple_label_prediction']
-        combined_df = combined_df.drop(columns=['simple_label_prediction'])
+        output_dataset = Path(self.root_dir,self.config.output_dataset)
+        if output_dataset.exists():
+            simple_categories_classified = pd.read_csv(Path(self.root_dir,simple_category_dataset),index_col=0)
+            combined_df = df.merge(simple_categories_classified, on = 'isbn10', how='left')
+            
+            combined_df['simple_categories'] = combined_df['simple_label_prediction']
+            combined_df = combined_df.drop(columns=['simple_label_prediction'])
 
-        combined_df = combined_df[~combined_df['categories'].isna()]
-        logger.info('Storing classified data...')
-        combined_df.to_csv(Path(self.root_dir,self.config.output_dataset),index=False)
+            combined_df = combined_df[~combined_df['categories'].isna()]
+            logger.info('Storing classified data...')
+            combined_df.to_csv(Path(self.root_dir,self.config.output_dataset),index=False)
         return self.config.output_dataset
     
     
@@ -54,6 +56,6 @@ class DataClassification:
             simple_categories_classified = df[['isbn10','categories','simple_label_prediction']]
             simple_categories_classified.to_csv(Path(self.root_dir,self.config.simple_categories_classified_dataset),index=False)
         logger.info('Data Classified...')
-        
         output_dataset = self.store_classified_data(df,self.config.simple_categories_classified_dataset)
+        
         return output_dataset
